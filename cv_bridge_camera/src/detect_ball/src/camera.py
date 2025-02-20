@@ -32,7 +32,7 @@ class image_converter:
     cv2.imshow("Ref Image window", cv_image)
     hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
     hue_min = 195*180/360
-    hue_max = 225*180/360
+    hue_max = 255*180/360
     sat_min = 60
     sat_max = 255
     value_min = 60
@@ -42,15 +42,31 @@ class image_converter:
     mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
     result = cv2.bitwise_and(cv_image, cv_image, mask=mask)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    centers = [None]*len(contours)
+    """centers = [None]*len(contours)
     radius = [None]*len(contours)
     contours_poly = [None]*len(contours)
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         centers[i], radius[i] = cv2.minEnclosingCircle(contours_poly[i])
-        cv2.circle(cv_image, (int(centers[i][0]), int(centers[i][1])), int(radius[i]), 255)
+        cv2.circle(cv_image, (int(centers[i][0]), int(centers[i][1])), int(radius[i]), 255)"""
+    detected_circles = cv2.HoughCircles(mask,  
+                cv2.HOUGH_GRADIENT, 1, 20, param1 = 50, 
+            param2 = 30, minRadius = 1, maxRadius = 40)
+    if detected_circles is not None: 
+        # Convert the circle parameters a, b and r to integers. 
+        detected_circles = np.uint16(np.around(detected_circles)) 
+    
+        for pt in detected_circles[0, :]: 
+            a, b, r = pt[0], pt[1], pt[2] 
+    
+            # Draw the circumference of the circle. 
+            cv2.circle(mask, (a, b), r, (0, 255, 0), 2) 
+    
+            # Draw a small circle (of radius 1) to show the center. 
+            cv2.circle(mask, (a, b), 1, (0, 0, 255), 3) 
     cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 3)
-    cv2.imshow("Image window", mask)
+    cv2.imshow("Mask window", mask)
+    cv2.imshow("Image window", cv_image)
     cv2.waitKey(3)
     try:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
