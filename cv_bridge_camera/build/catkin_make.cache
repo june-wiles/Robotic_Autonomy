@@ -1,0 +1,2 @@
+
+-DCATKIN_DEVEL_PREFIX=/home/june/cv_bridge_camera/devel -DCMAKE_INSTALL_PREFIX=/home/june/cv_bridge_camera/install -G Unix Makefiles
