@@ -7,7 +7,8 @@
 # new environment variables
 
 # modified environment variables
-export CMAKE_PREFIX_PATH="/home/june/cv_bridge_camera/devel:$CMAKE_PREFIX_PATH"
-export PWD='/home/june/cv_bridge_camera/build'
-export ROSLISP_PACKAGE_DIRECTORIES='/home/june/cv_bridge_camera/devel/share/common-lisp'
-export ROS_PACKAGE_PATH="/home/june/cv_bridge_camera/src:$ROS_PACKAGE_PATH"
+export CMAKE_PREFIX_PATH="/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/devel:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH="/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/devel/lib:$LD_LIBRARY_PATH"
+export PWD='/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/build'
+export ROSLISP_PACKAGE_DIRECTORIES='/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/devel/share/common-lisp'
+export ROS_PACKAGE_PATH="/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/src:$ROS_PACKAGE_PATH"

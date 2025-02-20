@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/june/cv_bridge_camera/install")
+  set(CMAKE_INSTALL_PREFIX "/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/install")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/june/cv_bridge_camera/build/gtest/googlemock/cmake_install.cmake")
+  include("/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/build/gtest/googlemock/cmake_install.cmake")
 
 endif()
 

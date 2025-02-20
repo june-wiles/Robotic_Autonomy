@@ -11,7 +11,7 @@
 
 # since this file is sourced either use the provided _CATKIN_SETUP_DIR
 # or fall back to the destination set at configure time
-: ${_CATKIN_SETUP_DIR:=/home/june/cv_bridge_camera/devel}
+: ${_CATKIN_SETUP_DIR:=/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/devel}
 _SETUP_UTIL="$_CATKIN_SETUP_DIR/_setup_util.py"
 unset _CATKIN_SETUP_DIR
 

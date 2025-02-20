@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/june/cv_bridge_camera/install")
+  set(CMAKE_INSTALL_PREFIX "/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/install")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 

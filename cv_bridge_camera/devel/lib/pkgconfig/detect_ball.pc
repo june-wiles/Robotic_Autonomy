@@ -1,0 +1,8 @@
+prefix=/home/june/Documents/Robotic_Autonomy/Robotic_Autonomy/cv_bridge_camera/devel
+
+Name: detect_ball
+Description: Description of detect_ball
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
