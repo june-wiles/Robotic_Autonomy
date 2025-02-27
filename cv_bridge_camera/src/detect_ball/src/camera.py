@@ -27,8 +27,6 @@ class image_converter:
       print(e)
     pi = 3.14159
     (rows,cols,channels) = cv_image.shape
-    if cols > 60 and rows > 60 :
-      cv2.circle(cv_image, (50,50), 10, 255)
     cv2.imshow("Ref Image window", cv_image)
     hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
     hue_min = 80*180/360
