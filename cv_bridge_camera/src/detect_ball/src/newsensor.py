@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 import numpy as np
@@ -18,8 +18,7 @@ class BallDetectionNode:
         self.bridge = CvBridge()
 
         # Subscribe to both Camera and LiDAR Topics
-        self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
-        self.sensor_sub = rospy.Subscriber("/usb_cam/image_raw", LaserScan, self.sensor_callback)
+        self.sensor_sub = rospy.Subscriber("/d400/aligned_depth_to_color/image_raw", LaserScan, self.sensor_callback)
 
         # Publisher for Image and Marker (Visualization)
         self.image_pub = rospy.Publisher("image_topic_2", Image, queue_size=10)
@@ -35,30 +34,9 @@ class BallDetectionNode:
         self.dc_max = 4.5  # Maximum detection distance
         self.w = 7  # Sigmoid slope
 
-    def image_callback(self, data):
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        except CvBridgeError as e:
-            rospy.logerr("Image conversion error: %s", str(e))
-            return
-
-        detected, center, radius = self.detect_ball(cv_image)
-
-        if detected:
-            world_coords = self.transform_to_world((center[0], center[1], radius))
-            probability = self.compute_probability(world_coords[0])  # Compute PoD
-            self.publish_marker(world_coords, probability)
-            self.center_pub.publish(f"Center of Largest Contour: ({center[0]}, {center[1]})")
-
-        cv2.imshow("Processed Image", cv_image)
-        cv2.waitKey(3)
-
-        try:
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-        except CvBridgeError as e:
-            rospy.logerr("Image publishing error: %s", str(e))
-
+    
     def sensor_callback(self, data):
+        print("Running Sensor Callback")
         detected_objects = self.process_sensor_data(data)
 
         if detected_objects:
@@ -67,23 +45,11 @@ class BallDetectionNode:
                 probability = self.compute_probability(world_coords[0])
                 self.publish_marker(world_coords, probability)
 
-    def detect_ball(self, image):
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        lower_bound = np.array([40, 60, 60])  # Adjust based on ball color
-        upper_bound = np.array([75, 255, 255])
-        mask = cv2.inRange(hsv, lower_bound, upper_bound)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            c = max(contours, key=cv2.contourArea)
-            (x, y), radius = cv2.minEnclosingCircle(c)
-            if radius > 10:
-                cv2.circle(image, (int(x), int(y)), int(radius), (255, 0, 0), 2)
-                return True, (x, y), radius
-        return False, None, None
+    
 
     def process_sensor_data(self, scan_data):
         detected_objects = []
+        print(scan_data.ranges)
         for i, distance in enumerate(scan_data.ranges):
             if scan_data.range_min < distance < scan_data.range_max:
                 angle = scan_data.angle_min + i * scan_data.angle_increment
