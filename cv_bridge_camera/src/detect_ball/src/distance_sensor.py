@@ -12,7 +12,7 @@ class MySubscriber(object):
         self.desiredcounts = 0.0
 
 
-        rospy.Subscriber('/centers', Float32, self.centers_callback)
+        rospy.Subscriber('/centers', String, self.centers_callback)
         rospy.Subscriber('/FILLER', Float32, self.distance_callback)
 
 
