@@ -9,6 +9,8 @@ import cv2
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from visualization_msgs.msg import Marker
+
 import numpy as np
 
 
@@ -17,18 +19,26 @@ class image_converter:
   def __init__(self):
     self.image_pub = rospy.Publisher("image_topic_2",Image)
     self.center_pub = rospy.Publisher("centers",String)
+    self.marker_pub = rospy.Publisher("detected_region", Marker, queue_size=10)
     self.bridge = CvBridge()
-    self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback)
-
-  def callback(self,data):
+    self.rgb_image_sub = rospy.Subscriber("/d400/color/image_raw",Image,self.rgb_callback)
+    #self.depth_image_sub = rospy.Subscriber("/camera/depth/image_rect_raw",Image,self.depth_callback)
+  def depth_callback(self, data):
+    try:
+      cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
+    except CvBridgeError as e:
+      print(e)
+    cv2.imshow("Depth Image Window", cv_image)
+  def rgb_callback(self,data):
     try:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
       print(e)
-    pi = 3.14159
+    depth_array = np.array(cv_image, dtype = np.float32)
     (rows,cols,channels) = cv_image.shape
     cv2.imshow("Ref Image window", cv_image)
     hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
+    #print(hsv_image.shape)
     hue_min = 80*180/360
     hue_max = 150*180/360
     sat_min = 60
@@ -43,44 +53,18 @@ class image_converter:
     centers = [None]*len(contours)
     radius = [None]*len(contours)
     contours_poly = [None]*len(contours)
-    contours_circlescore = [None]*len(contours)
-    circle_centers = []
-    circle_radii = []
-    circle_circlescore = []
-    circle_contours = []
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         centers[i], radius[i] = cv2.minEnclosingCircle(contours_poly[i])
-        contours_circlescore[i] = cv2.contourArea(c)/(pi*radius[i]**2)
-        if contours_circlescore[i] > 0.5 and radius[i] > 5:
-            circle_centers.append(centers[i])
-            circle_radii.append(radius[i])
-            circle_circlescore.append(contours_circlescore[i])
-            circle_contours.append(c)
-    if(circle_radii != []):
-        max_rad = max(circle_radii)
-        max_index = circle_radii.index(max_rad)
-        max_center = circle_centers[max_index]
-        max_circlescore = circle_circlescore[max_index]
-        cv2.circle(cv_image, (int(max_center[0]), int(max_center[1])), int(max_rad), 255)
-        cv2.circle(cv_image, (int(max_center[0]), int(max_center[1])), int(5), 50)
-        self.center_pub.publish("Center of Largest Circular Contour: ("+ str(max_center[0]) +", " +str(max_center[1])+") \n Circle Score: " + str(max_circlescore))
-    """detected_circles = cv2.HoughCircles(mask,  
-                cv2.HOUGH_GRADIENT, 1, 2, param1 = 50, 
-            param2 = 30, minRadius = 1, maxRadius = 40)
-    if detected_circles is not None: 
-        # Convert the circle parameters a, b and r to integers. 
-        detected_circles = np.uint16(np.around(detected_circles)) 
-    
-        for pt in detected_circles[0, :]: 
-            a, b, r = pt[0], pt[1], pt[2] 
-    
-            # Draw the circumference of the circle. 
-            cv2.circle(mask, (a, b), r, (0, 255, 0), 2) 
-    
-            # Draw a small circle (of radius 1) to show the center. 
-            cv2.circle(mask, (a, b), 1, (0, 0, 255), 3) """
-    cv2.drawContours(cv_image, circle_contours, -1, (0, 255, 0), 3)
+        
+    max_rad = max(radius)
+    max_index = radius.index(max_rad)
+    max_center = centers[max_index]
+    cv2.circle(cv_image, (int(max_center[0]), int(max_center[1])), int(max_rad), 255)
+    cv2.circle(cv_image, (int(max_center[0]), int(max_center[1])), int(5), 50)
+    self.center_pub.publish("Center of Largest Contour: ("+ str(max_center[0]) +", " +str(max_center[1])+")")
+
+    cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 3)
     cv2.imshow("Mask window", mask)
     cv2.imshow("Image window", cv_image)
     cv2.waitKey(3)
@@ -88,6 +72,20 @@ class image_converter:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
     except CvBridgeError as e:
       print(e)
+    ball_depth = depth_array[int(max_center[1])][int(max_center[0])]
+    marker = Marker()
+    marker.header.frame_id = "d400_link"
+    marker.type = Marker.SPHERE
+    marker.action = Marker.ADD
+    marker.pose.position.x = ball_depth[0]
+    marker.pose.position.y = ball_depth[1]
+    marker.pose.position.z = 0.1
+    marker.scale.x = marker.scale.y = marker.scale.z = ball_depth[2] * 2
+    marker.color.a = 1.0
+    marker.color.r = 1.0
+    marker.color.g = 0
+    marker.color.b = 0.0
+    self.marker_pub.publish(marker)
 
 def main(args):
   ic = image_converter()
