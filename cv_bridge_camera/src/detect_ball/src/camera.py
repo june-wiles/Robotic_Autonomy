@@ -22,13 +22,7 @@ class image_converter:
     self.marker_pub = rospy.Publisher("detected_region", Marker, queue_size=10)
     self.bridge = CvBridge()
     self.rgb_image_sub = rospy.Subscriber("/d400/color/image_raw",Image,self.rgb_callback)
-    #self.depth_image_sub = rospy.Subscriber("/camera/depth/image_rect_raw",Image,self.depth_callback)
-  def depth_callback(self, data):
-    try:
-      cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
-    except CvBridgeError as e:
-      print(e)
-    cv2.imshow("Depth Image Window", cv_image)
+
   def rgb_callback(self,data):
     try:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
@@ -56,7 +50,7 @@ class image_converter:
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         centers[i], radius[i] = cv2.minEnclosingCircle(contours_poly[i])
-        
+    # TODO add circlescores back in (deleted accidently when merging without github)
     max_rad = max(radius)
     max_index = radius.index(max_rad)
     max_center = centers[max_index]
@@ -73,6 +67,28 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
     ball_depth = depth_array[int(max_center[1])][int(max_center[0])]
+    # angle calculations
+    #TODO determime camera FOV
+    #PLACEHOLDER
+    # pixels from center * degrees per pixel = angle from center
+    # negative angle is left, positive angle is right
+    image_width = depth_array.shape[0]
+    angle_xy_plane = (max_center[1] - image_width/2) * (camera_FOV/image_width)
+
+    #TODO transform angle, depth to x, y in sensor frame
+    # x = rcos(theta), y = rsin(theta) maybe vice versa
+    x = ball_depth * sin(angle_xy_plane)
+    y = ball_depth * cos(angle_xy_plane)
+    mean_position = [x, y]
+    phi = angle_xy_plane - 90
+    R_t_to_s = [[cos(phi), sin(phi)],[-sin(phi), cos(phi)]]
+    #robot position
+    robot_angle = 0
+    robot_pos = [0, 0]
+    R_s_to_G = [[cos(robot_angle), sin(robot_angle)],[-sin(robot_angle), cos(robot_angle)]]
+    XY_Global = np.matmul( R_s_to_G, np.matmul(R_t_to_s, mean_position) ) + robot_pos
+
+    # TODO fix marker code
     marker = Marker()
     marker.header.frame_id = "d400_link"
     marker.type = Marker.SPHERE
