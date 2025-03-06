@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import print_function
-import rospy
-from std_msgs.msg import Float32
-import numpy as np
-
 
 import roslib
 roslib.load_manifest('detect_ball')
@@ -13,51 +9,123 @@ import cv2
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from visualization_msgs.msg import Marker
+
 import numpy as np
-class MySubscriber(object):
-
-    def __init__(self):
-        
-        self.encoder = 0.0
-        self.desiredcounts = 0.0
 
 
-        rospy.Subscriber('/centers', String, self.centers_callback)
-        rospy.Subscriber('/d400/aligned_depth_to_color/image_raw', Image, self.distance_callback)
+class image_converter:
 
+  def __init__(self):
+    self.image_pub = rospy.Publisher("image_topic_2",Image)
+    self.center_pub = rospy.Publisher("centers",String)
+    self.marker_pub = rospy.Publisher("detected_region", Marker, queue_size=10)
+    self.bridge = CvBridge()
+    self.rgb_image_sub = rospy.Subscriber("/d400/color/image_raw",Image,self.rgb_callback)
+    self.depth_image_sub = rospy.Subscriber("/d400/aligned_depth_to_color/image_raw", Image, self.depth_callback)
+  def depth_callback(self, data):
+    try: 
+      self.depth_image = self.bridge.imgmsg_to_cv2(data, "32FC1")
+    except CvBridgeError as e:
+      print(e)
+  def rgb_callback(self,data):
+    try:
+      cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+    except CvBridgeError as e:
+      print(e)
+    depth_array = self.depth_image
+    (rows,cols,channels) = cv_image.shape
+    cv2.imshow("Ref Image window", cv_image)
+    hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
+    #print(hsv_image.shape)
+    hue_min = 80*180/360
+    hue_max = 150*180/360
+    sat_min = 60
+    sat_max = 255
+    value_min = 60
+    value_max = 255
+    lower_bound = np.array([hue_min, sat_min, value_min])
+    upper_bound = np.array([hue_max, sat_max, value_max])
+    mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
+    result = cv2.bitwise_and(cv_image, cv_image, mask=mask)
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    centers = [None]*len(contours)
+    radius = [None]*len(contours)
+    contours_poly = [None]*len(contours)
+    for i, c in enumerate(contours):
+        contours_poly[i] = cv2.approxPolyDP(c, 3, True)
+        centers[i], radius[i] = cv2.minEnclosingCircle(contours_poly[i])
+    # TODO add circlescores back in (deleted accidently when merging without github)
+    max_center = False
+    max_rad = max(radius)
+    if max_rad>5:
+      max_index = radius.index(max_rad)
+      max_center = centers[max_index]
+      cv2.circle(cv_image, (int(max_center[0]), int(max_center[1])), int(max_rad), 255)
+      cv2.circle(cv_image, (int(max_center[0]), int(max_center[1])), int(5), 50)
+      self.center_pub.publish("Center of Largest Contour: ("+ str(max_center[0]) +", " +str(max_center[1])+")")
 
-    def centers_callback(self,msg):
-        self.centers = msg.data
+    cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 3)
+    cv2.imshow("Mask window", mask)
+    cv2.imshow("Image window", cv_image)
+    cv2.waitKey(3)
+    try:
+      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+    except CvBridgeError as e:
+      print(e)
+    # angle calculations
+    camera_FOV = 74*np.pi/180 #deg
+    #PLACEHOLDER
+    # pixels from center * degrees per pixel = angle from center
+    # negative angle is left, positive angle is right
+    
+    image_width = depth_array.shape[0]
+    if max_center:
+      ball_depth = depth_array[int(max_center[1])][int(max_center[0])]/1000
+      angle_xy_plane = (max_center[1] - image_width/2) * (camera_FOV/image_width)
+      #TODO filter angle, depth pairs outside of detectable region
+      # x = r*sin(theta) because theta is measured from the y axis
+      x = ball_depth * np.sin(angle_xy_plane)
+      y = ball_depth * np.cos(angle_xy_plane)
+      mean_position = [x, y]
+      phi = angle_xy_plane - np.pi/2 #rad
 
-    def distance_callback(self,msg):
-        cv_bridge = CvBridge()
-        try:
-            depth_img = cv_bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-        except CvBridgeError as e:
-            print(e)
-        depth_array = np.array(depth_img, dtype = np.float32)
-        detected_objects = self.centers
-        if detected_objects:
-            
-            world_coords = self.transform_to_world(obj)
-            probability = self.compute_probability(world_coords[0])
-            self.publish_marker(world_coords, probability)
-    def transform_to_world(self, detection):
-        """ Transforms detected coordinates to world frame using TF2. """
-        try:
-            trans = self.tf_buffer.lookup_transform("map", "base_link", rospy.Time(0), rospy.Duration(1.0))
-            world_x = detection[0] + trans.transform.translation.x
-            world_y = detection[1] + trans.transform.translation.y
-            return world_x, world_y, detection[2]
-        except Exception as e:
-            rospy.logerr("TF2 transform error: %s", str(e))
-            return detection
+      #for covariance transformations
+      R_t_to_s = [[np.cos(phi), np.sin(phi)],[-np.sin(phi), np.cos(phi)]]
+      #TODO add covariance calculations
+      #robot position
+      robot_angle = 0
+      robot_pos = [0, 0]
+      R_s_to_G = [[np.cos(robot_angle), np.sin(robot_angle)],[-np.sin(robot_angle), np.cos(robot_angle)]]
+      XY_Global = np.matmul( R_s_to_G, mean_position) + robot_pos
 
-    def loop(self):
-        rospy.logwarn("Starting Loop...")
-        rospy.spin()
+      # TODO fix marker code
+      marker = Marker()
+      marker.header.frame_id = "d400_link"
+      marker.type = Marker.SPHERE
+      marker.action = Marker.ADD
+      marker.pose.position.x = x
+      marker.pose.position.y = y
+      marker.pose.position.z = 0.1
+      marker.scale.x = marker.scale.y = marker.scale.z = ball_depth
+      marker.color.a = 1.0
+      marker.color.r = 1.0
+      marker.color.g = 0
+      marker.color.b = 0.0
+      self.marker_pub.publish(marker)
+    else:
+      marker = Marker()
+      marker.action = Marker.DELETEALL
+      self.marker_pub.publish(marker)
+
+def main(args):
+  ic = image_converter()
+  rospy.init_node('image_converter', anonymous=True)
+  try:
+    rospy.spin()
+  except KeyboardInterrupt:
+    print("Shutting down")
+  cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    rospy.init_node('subscriber_node', anonymous=True, log_level=rospy.WARN)
-    my_subs = MySubscriber()
-    my_subs.loop()
+    main(sys.argv)
