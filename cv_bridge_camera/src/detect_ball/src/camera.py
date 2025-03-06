@@ -75,18 +75,21 @@ class image_converter:
     # negative angle is left, positive angle is right
     image_width = depth_array.shape[0]
     angle_xy_plane = (max_center[1] - image_width/2) * (camera_FOV/image_width)
-
+    #TODO filter angle, depth pairs outside of detectable region
     # x = r*sin(theta) because theta is measured from the y axis
     x = ball_depth * np.sin(angle_xy_plane)
     y = ball_depth * np.cos(angle_xy_plane)
     mean_position = [x, y]
     phi = angle_xy_plane - np.pi/2 #rad
+
+    #for covariance transformations
     R_t_to_s = [[cos(phi), sin(phi)],[-sin(phi), cos(phi)]]
+    #TODO add covariance calculations
     #robot position
     robot_angle = 0
     robot_pos = [0, 0]
     R_s_to_G = [[cos(robot_angle), sin(robot_angle)],[-sin(robot_angle), cos(robot_angle)]]
-    XY_Global = np.matmul( R_s_to_G, np.matmul(R_t_to_s, mean_position) ) + robot_pos
+    XY_Global = np.matmul( R_s_to_G, mean_position) + robot_pos
 
     # TODO fix marker code
     marker = Marker()
