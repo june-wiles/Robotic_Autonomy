@@ -69,20 +69,18 @@ class image_converter:
     ball_depth = depth_array[int(max_center[1])][int(max_center[0])]
     # angle calculations
     #TODO determine camera FOV
-    camera_FOV = 60 #deg
+    camera_FOV = 60*np.pi/180 #deg
     #PLACEHOLDER
     # pixels from center * degrees per pixel = angle from center
     # negative angle is left, positive angle is right
     image_width = depth_array.shape[0]
     angle_xy_plane = (max_center[1] - image_width/2) * (camera_FOV/image_width)
 
-    #TODO transform angle, depth to x, y in sensor frame
-    #TODO convert degrees to radians if necessary (*pi/180)
     # x = r*sin(theta) because theta is measured from the y axis
-    x = ball_depth * sin(angle_xy_plane)
-    y = ball_depth * cos(angle_xy_plane)
+    x = ball_depth * np.sin(angle_xy_plane)
+    y = ball_depth * np.cos(angle_xy_plane)
     mean_position = [x, y]
-    phi = angle_xy_plane - 90 #deg
+    phi = angle_xy_plane - np.pi/2 #rad
     R_t_to_s = [[cos(phi), sin(phi)],[-sin(phi), cos(phi)]]
     #robot position
     robot_angle = 0
